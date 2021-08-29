@@ -1,0 +1,50 @@
+antipattern_all_users: |-
+{# data is the tenants dictionary that is earlier read into memory #} {% for tenant,config in data.tenants.items() %}
+{% set user_list = [] %}
+{% for service_cfg in config.services %}
+{% if service_cfg.name == 'ui' %}
+{% for u in service_cfg.uiconfig.users %}
+{% set t = user_list.append([u.user]) %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+- users:
+{{ user_list|flatten|to_nice_yaml|indent(4, indentfirst=False) }} tenant: {{ tenant }}
+{% endfor %} default_service_config:
+vision:
+image: ubuntu:18.04 objtype: statefulset resources:
+cpu: 4
+ram: 8 worker:
+image: ubuntu:16.04 objtype: statefulset resources:
+cpu: 2
+ram: 4 environment:
+LISTEN_PORT: 8094
+THREAD_COUNT: 5 ui:
+image: apache:alpine-3.12 objtype: deployment resources:
+cpu: 2
+ram: 2 environment:
+LISTENING_PORT: 8080 tenants:
+dfs46: services:
+- name: worker resources:
+cpu: 4
+ram: 8 environment:
+THREAD_COUNT: 8 - name: ui
+uiconfig: modules:
+- core - api
+- web
+users:
+- user: administrator
+permissions: - admin
+- user: user1 permissions: []
+- user: user2 permissions: []
+nnp44: services:
+- name: worker - name: vision - name: ui
+resources: ram: 2
+uiconfig: modules:
+- core
+- api
+- web
+- web-api
+users:
+- user: administrator
+permissions: - admin

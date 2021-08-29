@@ -1,0 +1,5 @@
+To Check the health of ElasticSearch from the command line
+curl localhost:9200/_cat/health
+
+To get further more output use the command below.
+curl -XGET 'localhost:9200/_cluster/health?pretty'

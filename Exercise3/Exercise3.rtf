@@ -1,0 +1,30 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2580
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\froman\fcharset0 Times-Bold;\f1\froman\fcharset0 Times-Roman;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red255\green255\blue255;\red252\green44\blue7;
+}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\cssrgb\c100000\c100000\c100000;\cssrgb\c100000\c27059\c0;
+}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat0\levelspace360\levelindent0{\*\levelmarker \{none\}.}{\leveltext\leveltemplateid1\'01.;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\paperw11900\paperh16840\margl1440\margr1440\vieww35640\viewh21840\viewkind0
+\deftab720
+\pard\tx220\tx720\pardeftab720\li720\fi-720\sa240\partightenfactor0
+\ls1\ilvl0
+\f0\b\fs48 \cf2 \cb3 \expnd0\expndtw0\kerning0
+Exercise 3: Linux problem solving
+\f1\b0 \
+\ls1\ilvl0
+\f0\b\fs36 Troubleshooting:
+\f1\b0 \
+\ls1\ilvl0
+\fs34 After logging into the linux vm, checked the status of the reds service and noticed that the service was in Failed state with the error saying \'93Failed to start Advanced key value store\'94. I tried to restart the service and it was not working.\
+Checked the logs /var/log/redis/redis-server.log and it didn\'92t give much information about the cause of the error. Checked the configuration file and got nothing there as well.\
+\ls1\ilvl0
+\f0\b Solution:
+\f1\b0 \
+\ls1\ilvl0
+\fs32 Eventually, removed the redis server and reinstalled it that fixed the issue.
+\fs64 \cf4 \
+\ls1\ilvl0
+\fs24 \cf2 \cb1 \uc0\u8232 \
+}

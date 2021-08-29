@@ -1,0 +1,14 @@
+Running Elasticsearch as a Daemon Service on Linux:
+
+
+Edit the bash profile that looks like this ~/.bash_profile to add the code below:
+
+alias es=Elasticsearch
+Elasticsearch() {
+/usr/local/share/Elasticsearch/bin/service/Elasticsearch $1
+}
+
+After Elasticsearch and Oracle’s JDK is installed ,the service will not start as a default setting. The configuration is located in the /etc/sysconfig/Elasticsearch directory. A user can run these commands in terminal to enable Elasticsearch to start after the server or system has booted:
+sudo update-rc.d Elasticsearch defaults 95 10
+sudo /etc/init.d/Elasticsearch start
+

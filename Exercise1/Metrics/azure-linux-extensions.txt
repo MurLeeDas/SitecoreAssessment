@@ -1,0 +1,292 @@
+Use Linux Diagnostic Extension v3 to monitor metrics:
+
+The Linux Diagnostic Extension helps a user monitor the health of a Linux VM running on Microsoft Azure.
+We need to enable this extension by using Azure portal.
+
+Protected Settings:
+This set of configuration information contains sensitive information which should be protected from public view, e.g. storage credentials. These settings are transmitted to and stored by the extension in encrypted form.
+
+{
+    "storageAccountName" : "the storage account to receive data",
+    "storageAccountEndPoint": "the URL prefix for the cloud for this account",
+    "storageAccountSasToken": "SAS access token",
+    "mdsdHttpProxy": "HTTP proxy settings",
+    "sinksConfig": { ... }
+}
+
+You can easily construct the required SAS token through the Azure portal. Select the general-purpose storage account which you want the extension to write, then select "Shared access signature" from the Settings part of the left menu. Make the appropriate choices as described above and click the "Generate SAS" button.
+Copy the generated SAS into the storageAccountSasToken field; remove the leading question-mark ("?").
+
+sinksConfig:
+
+"sinksConfig": {
+    "sink": [
+        {
+            "name": "sinkname",
+            "type": "sinktype",
+            ...
+        },
+        ...
+    ]
+},
+This section defines additional destinations to which the extension will deliver the information it collects. The "sink" array contains an object for each additional data sink. The object will contain additional attributes as determined by the "type" attribute.
+Version 3.0 of the Linux Diagnostic Extension supports two sink types: EventHub, and JsonBlob.
+
+The EventHub sink:
+
+"sink": [
+    {
+        "name": "sinkname",
+        "type": "EventHub",
+        "sasUrl": "https SAS URL"
+    },
+    ...
+]
+The "sasURL" entry contains the full URL, including SAS token, for the EventHub endpoint to which data should be published. The SAS URL should be built using the EventHub endpoint (policy-level) shared key, not the root-level shared key for the entire EventHub subscription. Event Hubs SAS tokens are different from Storage SAS tokens; details can be found on this web page.
+
+The JsonBlob sink:
+
+"sink": [
+    {
+        "name": "sinkname",
+        "type": "JsonBlob"
+    },
+    ...
+]
+Data directed to a JsonBlob sink will be stored in blobs in a container with the same name as the sink. The Azure storage rules for blob container names apply to the names of JsonBlob sinks: between 3 and 63 lower-case alphanumeric ASCII characters or dashes. Individual blobs will be created every hour for each instance of the extension writing to the container. The blobs will always contain a syntactically-valid JSON object; new entries are added atomically.
+
+Public settings:
+
+This structure contains various blocks of settings which control the information collected by the extension.
+
+{
+    "mdsdHttpProxy" : "",
+    "ladCfg":  { ... },
+    "perfCfg": { ... },
+    "fileLogs": { ... }
+}
+
+ladCfg
+"ladCfg": {
+    "diagnosticMonitorConfiguration": {
+        "eventVolume": "Medium",
+        "metrics": { ... },
+        "performanceCounters": { ... },
+        "syslogEvents": { ... }
+    },
+    "sampleRateInSeconds": 15
+}
+Controls the gathering of mmetrics
+"metrics": {
+    "resourceId": "/subscriptions/...",
+    "metricAggregation" : [
+        { "scheduledTransferPeriod" : "PT1H" },
+        { "scheduledTransferPeriod" : "PT5M" }
+    ]
+}
+Samples of the metrics specified in the performanceCounters section are periodically collected. Those raw samples are aggregated to produce mean, minimum, maximum, and last-collected values, along with the count of raw samples used to compute the aggregate. If multiple scheduledTransferPeriod frequencies appear (as in the example), each aggregation is computed independently over the specified interval. The name of the storage table to which aggregated metrics are written (and from which Azure Metrics reads data) is based, in part, on the transfer period of the aggregated metrics stored within it.etrics and logs for delivery to the Azure Metrics service and to other data destinations ("sinks"). All settings in this section, with the exception of eventVolume, can be controlled via the Azure portal as well as through PowerShell, CLI, or template.
+
+The Azure Metrics service requires metrics to be stored in a very particular Azure storage table. Similarly, log events must be stored in a different, but also very particular, table. All instances of the diagnostic extension configured (via Private Config) to use the same storage account name and endpoint will add their metrics and logs to the same table. If too many VMs are writing to the same table partition, Azure can throttle writes to that partition. The eventVolume setting changes how partition keys are constructed so that, across all instances of the extension writing to the same table, entries are spread across 1, 10, or 100 different partitions.
+Samples of the metrics specified in the performanceCounters section are collected every 15 seconds or at the sample rate explicitly defined for the counter. If multiple scheduledTransferPeriod frequencies appear (as in the example), each aggregation is computed independently. The name of the storage table to which aggregated metrics are written (and from which Azure Metrics reads data) is based, in part, on the transfer period of the aggregated metrics stored within it.
+
+performanceCounters:
+
+"performanceCounters": {
+    "sinks": "",
+    "performanceCounterConfiguration": [
+        {
+            "type": "builtin",
+            "class": "Processor",
+            "counter": "PercentIdleTime",
+            "counterSpecifier": "/builtin/Processor/PercentIdleTime",
+            "condition": "IsAggregate=TRUE",
+            "sampleRate": "PT15S",
+            "unit": "Percent",
+            "annotation": [
+                {
+                    "displayName" : "Aggregate CPU %idle time",
+                    "locale" : "en-us"
+                }
+            ],
+        },
+    ]
+}
+
+syslogEvents:
+
+"syslogEvents": {
+    "sinks": "",
+    "syslogEventConfiguration": {
+        "facilityName1": "minSeverity",
+        "facilityName2": "minSeverity",
+        ...
+    }
+}
+The syslogEventConfiguration collection has one entry for each syslog facility of interest. Setting a minSeverity of "NONE" for a particular facility behaves exactly as if that facility did not appear in the element at all; no events from that facility are captured.
+
+perfCfg:
+
+Controls execution of arbitrary OMI queries.
+
+"perfCfg": [
+    {
+        "namespace": "root/scx",
+        "query": "SELECT PercentAvailableMemory, PercentUsedSwap FROM SCX_MemoryStatisticalInformation",
+        "table": "LinuxOldMemory",
+        "frequency": 300,
+        "sinks": ""
+    }
+]
+
+fileLogs:
+
+Controls the capture of log files by rsyslogd or syslog-ng. As new text lines are written to the file, rsyslogd/syslog-ng captures them and passes them to the diagnostic extension, which in turn writes them as table rows or to the specified sinks (JsonBlob or EventHub).
+
+"fileLogs": [
+    {
+        "file": "/var/log/mydaemonlog",
+        "table": "MyDaemonEvents",
+        "sinks": ""
+    }
+]
+
+Metrics supported by "builtin":
+
+The "builtin" metric provider is a source of metrics most interesting to a broad set of users. These metrics fall into five broad classes:
+
+Processor
+Memory
+Network
+Filesystem
+Disk
+
+Installing and configuring LAD 3.0 via CLI:
+
+Assuming your protected settings are in the file PrivateConfig.json and your public configuration information is in PublicConfig.json, run this command:
+
+azure vm extension set resource_group_name vm_name LinuxDiagnostic Microsoft.Azure.Diagnostics '3.*' --private-config-path PrivateConfig.json --public-config-path PublicConfig.json
+
+Please note that the above command assumes you are in the Azure Resource Management mode (arm) of the Azure CLI and applies only to the Azure ARM VMs, not to any classic Azure VMs. For classic (or ASM, Azure Service Management) VMs, you'll need to set the CLI mode to "asm" (run azure config mode asm) before running the above command, and you should also omit the resource group name in the command (there is no notion of resource groups in ASM). For more information on different modes of Azure CLI and how to use them, please refer to related documentation like this.
+
+Sample LAD 3.0 configuration:
+
+{
+  "storageAccountName": "yourdiagstgacct",
+  "storageAccountSasToken": "sv=xxxx-xx-xx&ss=bt&srt=co&sp=wlacu&st=yyyy-yy-yyT21%3A22%3A00Z&se=zzzz-zz-zzT21%3A22%3A00Z&sig=fake_signature",
+  "sinksConfig": {
+    "sink": [
+      {
+        "name": "SyslogJsonBlob",
+        "type": "JsonBlob"
+      },
+      {
+        "name": "FilelogJsonBlob",
+        "type": "JsonBlob"
+      },
+      {
+        "name": "LinuxCpuJsonBlob",
+        "type": "JsonBlob"
+      },
+      {
+        "name": "WADMetricJsonBlob",
+        "type": "JsonBlob"
+      },
+      {
+        "name": "LinuxCpuEventHub",
+        "type": "EventHub",
+        "sasURL": "https://youreventhubnamespace.servicebus.windows.net/youreventhubpublisher?sr=https%3a%2f%2fyoureventhubnamespace.servicebus.windows.net%2fyoureventhubpublisher%2f&sig=fake_signature&se=1808096361&skn=yourehpolicy"
+      },
+      {
+        "name": "WADMetricEventHub",
+        "type": "EventHub",
+        "sasURL": "https://youreventhubnamespace.servicebus.windows.net/youreventhubpublisher?sr=https%3a%2f%2fyoureventhubnamespace.servicebus.windows.net%2fyoureventhubpublisher%2f&sig=yourehpolicy&skn=yourehpolicy"
+      },
+      {
+        "name": "LoggingEventHub",
+        "type": "EventHub",
+        "sasURL": "https://youreventhubnamespace.servicebus.windows.net/youreventhubpublisher?sr=https%3a%2f%2fyoureventhubnamespace.servicebus.windows.net%2fyoureventhubpublisher%2f&sig=yourehpolicy&se=1808096361&skn=yourehpolicy"
+      }
+    ]
+  }
+}
+
+Then the following public settings (that should be saved in a file as PublicConfig.json for the Azure CLI command above) will do the following:
+
+Uploads percent-processor-time and used-disk-space to Azure Metric service table (this will allow you to view these metrics in the Azure Portal), and your EventHub (as specified in your sink WADMetricEventHub) and your Azure Blob storage (container name is wadmetricjsonblob).
+Uploads messages from syslog facility "user" and severity "info" or above to your Azure Table storage (always on by default, and the Azure Table name is LinuxSyslog*), your Azure Blob storage (container name is syslogjsonblob*), and your EventHubs publisher (as specified in your sink name LoggingEventHub).
+Uploads raw OMI query results (PercentProcessorTime and PercentIdleTime) to your Azure Table storage (table name is LinuxCpu*), your Azure Blob storage (container name is linuxcpujsonblob*) and your EventHubs publisher (as specified in your sink name LinuxCpuEventHub).
+Uploads appended lines in file /var/log/myladtestlog to your Azure Table storage (table name is MyLadTestLog*), your Azure Blob storage (container name is filelogjsonblob*), and to your EventHubs publisher (as specified in your sink name LoggingEventHub).
+{
+  "StorageAccount": "yourdiagstgacct",
+  "sampleRateInSeconds": 15,
+  "ladCfg": {
+    "diagnosticMonitorConfiguration": {
+      "performanceCounters": {
+        "sinks": "WADMetricEventHub,WADMetricJsonBlob",
+        "performanceCounterConfiguration": [
+          {
+            "unit": "Percent",
+            "type": "builtin",
+            "counter": "PercentProcessorTime",
+            "counterSpecifier": "/builtin/Processor/PercentProcessorTime",
+            "annotation": [
+              {
+                "locale": "en-us",
+                "displayName": "Aggregate CPU %utilization"
+              }
+            ],
+            "condition": "IsAggregate=TRUE",
+            "class": "Processor"
+          },
+          {
+            "unit": "Bytes",
+            "type": "builtin",
+            "counter": "UsedSpace",
+            "counterSpecifier": "/builtin/FileSystem/UsedSpace",
+            "annotation": [
+              {
+                "locale": "en-us",
+                "displayName": "Used disk space on /"
+              }
+            ],
+            "condition": "Name=\"/\"",
+            "class": "Filesystem"
+          }
+        ]
+      },
+      "metrics": {
+        "metricAggregation": [
+          {
+            "scheduledTransferPeriod": "PT1H"
+          },
+          {
+            "scheduledTransferPeriod": "PT1M"
+          }
+        ],
+        "resourceId": "/subscriptions/your_azure_subscription_id/resourceGroups/your_resource_group_name/providers/Microsoft.Compute/virtualMachines/your_vm_name"
+      },
+      "eventVolume": "Large",
+      "syslogEvents": {
+        "sinks": "SyslogJsonBlob,LoggingEventHub",
+        "syslogEventConfiguration": {
+          "LOG_USER": "LOG_INFO"
+        }
+      }
+    }
+  },
+  "perfCfg": [
+    {
+      "query": "SELECT PercentProcessorTime, PercentIdleTime FROM SCX_ProcessorStatisticalInformation WHERE Name='_TOTAL'",
+      "table": "LinuxCpu",
+      "frequency": 60,
+      "sinks": "LinuxCpuJsonBlob,LinuxCpuEventHub"
+    }
+  ],
+  "fileLogs": [
+    {
+      "file": "/var/log/myladtestlog",
+      "table": "MyLadTestLog",
+      "sinks": "FilelogJsonBlob,LoggingEventHub"
+    }
+  ]
+}
